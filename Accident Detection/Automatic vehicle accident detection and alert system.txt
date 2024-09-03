@@ -1,0 +1,190 @@
+#include <Adafruit_MPU6050.h>
+#include <Adafruit_Sensor.h>
+#include <TinyGPS++.h>
+#include <SoftwareSerial.h>
+#define RXPin D4
+#define BzPin D6
+#define TXPin D5
+#include <ESP8266WiFi.h>
+#include <Wire.h>    
+
+ 
+Adafruit_MPU6050 mpu;
+
+WiFiClient client;
+String MakerIFTTT_Key ;
+String MakerIFTTT_Event;
+char *append_str(char *here, String s) {  int i=0; while (*here++ = s[i]){i++;};return here-1;}
+char *append_ul(char *here, unsigned long u) { char buf[20]; return append_str(here, ultoa(u, buf, 10));}
+char post_rqst[256];char *p;char *content_length_here;char *json_start;int compi;
+int flag = 0;
+static const uint32_t GPSBaud = 9600;
+String place;
+String latis;
+String lons;
+
+
+TinyGPSPlus gps;
+SoftwareSerial ss(RXPin, TXPin);
+// LiquidCrystal_I2C lcd(0x27, 16, 2); // Set the LCD address to 0x27 for your
+
+static const double homeLat = 22.9747; // Change to your home location latitude
+static const double homeLon = 88.4337;  // Change to your home location longitude
+
+void setup() {
+  pinMode(BzPin, OUTPUT);
+//  lcd.begin();      
+//   lcd.backlight();
+  Serial.begin(9600);
+  ss.begin(GPSBaud);
+  Serial.begin(9600);
+  WiFi.disconnect();
+  delay(3000);
+  Serial.println("START");
+   WiFi.begin("Emrys","bolbonatomae");
+  while ((!(WiFi.status() == WL_CONNECTED))){
+    delay(300);
+    Serial.print("..");
+
+  }
+  Serial.println("Connected");
+  Serial.println("Your IP is");
+  Serial.println((WiFi.localIP().toString()));
+ 
+  while (!Serial)
+    delay(10); // will pause Zero, Leonardo, etc until serial console opens
+
+  Serial.println("Adafruit MPU6050 test!");
+
+  // Try to initialize!
+  if (!mpu.begin()) {
+    Serial.println("Failed to find MPU6050 chip");
+    while (1) {
+      delay(10);
+    }
+  }
+  Serial.println("MPU6050 Found!");
+//   lcd.begin();                      // Initialize the LCD
+//   lcd.backlight();                 // Turn on the backlight (if available)
+//   lcd.setCursor(0, 0);            // Set the cursor to the first row, first column
+//   lcd.print("Hack TheHardware");      // Print your message
+}
+
+void loop() {
+  while (ss.available() > 0) {
+    sensors_event_t a, g, temp;
+    mpu.getEvent(&a, &g, &temp);
+
+  /* Print out the values */
+    place = "23.716047204074535 86.95008632883534";
+      Serial.print(place);
+      Serial.println();
+      Serial.print("Acceleration X: ");
+  Serial.print((a.acceleration.x));
+  Serial.print(", Y: ");
+  Serial.print(a.acceleration.y);
+  Serial.print(", Z: ");
+  Serial.print(a.acceleration.z);
+  Serial.println(" m/s^2");
+  if(a.acceleration.y > 6 || a.acceleration.y < -6 || a.acceleration.x > 8 || a.acceleration.x < -8)
+     {
+      if(flag == 0){
+        Serial.println("Hello please send message");
+        send_message();
+        flag=1;
+      }
+ 
+     }
+    gps.encode(ss.read());
+    if (gps.location.isUpdated()) {
+      
+      double lati = gps.location.lat();
+      double lon = gps.location.lng();
+
+       latis = "";
+      latis = String(lati, 6);
+       lons = "";
+      lons = String(lon, 6);
+//      place = "http://maps.google.com/maps?q=loc:" + latis + " " + lons;
+//      Serial.print(place);
+//      Serial.println();
+//      Serial.print("Acceleration X: ");
+//  Serial.print((a.acceleration.x));
+//  Serial.print(", Y: ");
+//  Serial.print(a.acceleration.y);
+//  Serial.print(", Z: ");
+//  Serial.print(a.acceleration.z);
+//  Serial.println(" m/s^2");
+//      Serial.print("http://maps.google.com/maps?q=loc:", latis , " " , lons); Serial.print(lati, 6);Serial.print(" ");Serial.println(lon, 6);
+//      Serial.print("Distance to Home (km): "); Serial.println(distance, 4);
+//  if(a.acceleration.y > 6 || a.acceleration.y < -6 || a.acceleration.x > 8 || a.acceleration.x < -8)
+//     {
+//      if(flag == 0){
+//        Serial.println("Hello please send message");
+//        send_message();
+//        flag=1;
+//      }
+// 
+//     }
+     
+  }
+  }
+ }
+
+void send_message()
+{
+  if (client.connect("maker.ifttt.com",80))
+      {
+    MakerIFTTT_Key ="b75fyq2t54nVLgMYwljsNS";
+    MakerIFTTT_Event ="Alert";
+    p = post_rqst;
+    p = append_str(p, "POST /trigger/");
+    p = append_str(p, MakerIFTTT_Event);
+    p = append_str(p, "/with/key/");
+    p = append_str(p, MakerIFTTT_Key);
+    p = append_str(p, " HTTP/1.1\r\n");
+    p = append_str(p, "Host: maker.ifttt.com\r\n");
+    p = append_str(p, "Content-Type: application/json\r\n");
+    p = append_str(p, "Content-Length: ");
+    content_length_here = p;
+    p = append_str(p, "NN\r\n");
+    p = append_str(p, "\r\n");
+    json_start = p;
+    p = append_str(p, "{\"value1\":\"");
+//    p = append_str(p, "917003959912");
+    p = append_str(p, "\",\"value2\":\"");
+    p = append_str(p, "http://maps.google.com/maps?q=loc:23.716047204074535+86.95008632883534");
+//    p = append_str(p, place);
+//    p = append_str(p, "http://maps.google.com/maps?q=loc:23.716047204074535+86.95008632883534");
+//    p = append_str(p, "\",\"value3\":\"");
+//    p = append_str(p, "2.4102");
+    p = append_str(p, "\"}");
+    Serial.println(place);
+    Serial.println(p);
+    compi= strlen(json_start);
+    content_length_here[0] = '0' + (compi/10);
+    content_length_here[1] = '0' + (compi%10);
+   
+    client.print(post_rqst);
+    digitalWrite(BzPin, HIGH);
+    delay(100);
+    digitalWrite(BzPin, LOW);
+    delay(100);  
+  }
+}
+
+//double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
+//  const double R = 6371.0; // Radius of the Earth in kilometers
+//  double lat1Rad = radians(lat1);
+//  double lon1Rad = radians(lon1);
+//  double lat2Rad = radians(lat2);
+//  double lon2Rad = radians(lon2);
+//
+//  double dlon = lon2Rad - lon1Rad;
+//  double dlat = lat2Rad - lat1Rad;
+//
+//  double a = pow(sin(dlat / 2), 2) + cos(lat1Rad) * cos(lat2Rad) * pow(sin(dlon / 2), 2);
+//  double c = 2 * atan2(sqrt(a), sqrt(1 - a));
+//
+//  return R * c;
+//}
